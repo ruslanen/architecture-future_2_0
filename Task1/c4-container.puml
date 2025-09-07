@@ -1,0 +1,67 @@
+@startuml
+title Диаграмма контейнеров компании «Будущее 2.0»
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+' Акторы
+Person(BIUser, "BI-аналитик", "Подготавливает отчеты и дашборды")
+Person(DataScientist, "Data Scientist", "Проводит глубокие исследования данных")
+Person(MedicalWorker, "Медицинский работник", "Работает в медицинской системе с данными клиентов")
+Person(DomainAnalytic, "Аналитик конкретного домена", "Работает в своем домене, может запрашивать данные из чужих доменов")
+Person(DomainManager, "Руководитель отдела", "Отвечает за команду домена")
+
+Container_Boundary(FutureSystem, "Система «Будущее 2.0»") {
+  ' Легаси
+  Container(DataWareHouse, "Устаревшее DWH", "Microsoft SQL Server 2008", "Устаревшее хранилище данных для DWH")
+  Container(BI, "Аналитическая система", "Power BI", "Предоставляет функционал аналитической платформы")
+  Container(PowerBuilder, "Система работы с даннами в DWH", "Power Builder", "Предоставляет функционал запросов к DWH")
+  Container(FinTechServices, "Финтех сервисы", "Golang, Java", "Представляет набор сервисов для работы финансового отдела: счета, кредиты, операции")
+  Container(MIS, "Медицинская система", "T-SQL, Java", "Предоставляет основной функционал по работе с пациентами: регистрация, приемы, история болезней")
+  Container(AIServices, "ML/AI-сервисы", "Python", "Сервисы для глубокой аналитики данных")
+
+  ' Новые сервисы
+  Container_Boundary(S3Boundary, "Data Lakehouse") {
+    Container(S3Raw, "Raw Layer", "S3", "Сырые данные (как есть из источников)")
+    Container(S3Curated, "Curated Layer", "S3", "Очишенные и нормализованные данные")
+    Container(S3Marts, "Data Marts/Витрины", "S3", "Подготовленные витрины для BI и самообслуживания")
+  }
+
+  Container(SqlConnector, "SQL-коннектор", "Trino", "Предоставляет адаптер к объектному хранилищу с SQL-синтаксисом")
+  Container(DataCatalog, "Каталог данных", "DataHub", "Предоставляет каталог метаданных")
+  Container(MessageBus, "Шина сообщений", "Kafka", "Предоставляет функциональность интеграции систем в режиме реального времени")
+  Container(DataWriter, "Сервис записи в хранилище", "Kafka Connect", "Предоставляет функциональность записи данных в объектное хранилище")
+}
+
+' Легаси связи
+Rel(PowerBuilder, DataWareHouse,"Отправляет SQL-запросы на чтение/запись")
+
+' Новые связи
+Rel(FinTechServices, MessageBus,"Сохраняет сообщения в очередь при появлении новых данных")
+Rel(MIS, SqlConnector,"Отправляет SQL-запросы на чтение/запись")
+Rel(BI, SqlConnector, "Отправляет SQL-запросы на чтение")
+
+Rel(SqlConnector, S3Marts, "Отправляет запросы на чтение/запись")
+Rel(SqlConnector, S3Curated, "Отправляет запросы на чтение/запись")
+Rel(DataWriter, S3Raw, "Сохраняет данные в слой Raw")
+Rel(S3Raw, S3Curated, "ETL/обработка данных")
+Rel(S3Curated, S3Marts, "Формирование витрин")
+
+Rel(DataWriter, MessageBus, "Забирает сообщения со всех очередей доменов для записи в хранилище")
+Rel(AIServices, DataCatalog, "Получает информацию о местонахождении данных")
+Rel(AIServices, SqlConnector, "Забирает данные для глубого анализа")
+
+Rel(DataWareHouse, DataWriter, "Историческая выгрузка/CDC")
+
+' Связи акторов
+Rel(MedicalWorker, PowerBuilder,"Выполняет операцию по записи/чтению данных")
+Rel(BIUser, DataCatalog, "Получает информацию о местонахождении отчета")
+Rel(BIUser, BI, "Настраивает дашборд и подготавливает данные")
+Rel(MedicalWorker, MIS, "Регистрирует, ведет учет и прием пациентов")
+Rel(DataScientist, AIServices, "Настраивает и запускает ИИ-пайпланы")
+Rel(DomainAnalytic, DataCatalog, "Получает информацию о местонахождении отчета")
+Rel(DomainAnalytic, BI, "Настраивает дашборд и подготавливает данные")
+Rel(DomainManager, BI, "Смотрит ключевые показатели на дашборде")
+
+@enduml
